@@ -15,7 +15,6 @@ namespace EZShare.Commands
         public GenerateKeyCommand() : base(_commandName, _commandDesc)
         {
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            
         }
     }
 }

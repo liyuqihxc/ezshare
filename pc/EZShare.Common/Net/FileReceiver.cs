@@ -28,14 +28,14 @@ namespace EZShare.Common.Net
             CloseConnection,
         }
 
-        private _States _states = _States.Listening;
         private readonly StateMachine<_States, _Commands> _stateMachine;
-        private readonly TcpListener _tcpListener;
+        private readonly TcpClient _tcpClient;
 
-        public FileReceiver()
+        public FileReceiver(TcpClient tcpClient)
         {
-            _tcpListener = new TcpListener(IPAddress.Any, 0);
-            _stateMachine = new StateMachine<_States, _Commands>(() => _states, s => _states = s);
+            _tcpClient = tcpClient;
+
+            _stateMachine = new StateMachine<_States, _Commands>(_States.Listening);
 
             _stateMachine.Configure(_States.Listening)
                 .OnEntryAsync(InitializeOrResetConnectionAsync)
@@ -65,10 +65,9 @@ namespace EZShare.Common.Net
                 .OnEntryAsync(CheckFileIntegrityAsync)
                 .Permit(_Commands.StartReceivingFile, _States.BeginReceivingFile)
                 .Permit(_Commands.CloseConnection, _States.Listening);
+
+            InitializeOrResetConnectionAsync().Wait();
         }
-
-        public int TransportPort { get; }
-
 
         private Task InitializeOrResetConnectionAsync()
         {

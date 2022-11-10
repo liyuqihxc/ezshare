@@ -13,16 +13,16 @@ namespace EZShare.Commands
     {
         private static readonly string _commandDesc = "";
 
+        public Option<bool> VerboseOption { get; }
+
         public ToolRootCommand() : base(_commandDesc)
         {
-            var verboseOption = new Option<bool>(name: "--verbose", description: "Make the operation more talkative");
-            verboseOption.AddAlias("-v");
-            AddOption(verboseOption);
-            Handler = CommandHandler.Create<bool>(CommandAction);
-        }
+            AddCommand(new ReceiveCommand());
+            AddCommand(new GenerateKeyCommand());
 
-        private void CommandAction(bool verbose)
-        {
+            VerboseOption = new Option<bool>(name: "--verbose", description: "Make the operation more talkative");
+            VerboseOption.AddAlias("-v");
+            AddGlobalOption(VerboseOption);
         }
     }
 }

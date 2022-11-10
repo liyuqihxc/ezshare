@@ -1,4 +1,5 @@
-﻿using System;
+﻿using EZShare.Common.Net;
+using System;
 using System.Collections.Generic;
 using System.CommandLine;
 using System.CommandLine.NamingConventionBinder;
@@ -19,12 +20,14 @@ namespace EZShare.Commands
             announcingPortOption.AddAlias("-a");
             AddOption(announcingPortOption);
 
-            Handler = CommandHandler.Create<int>(CommandAction);
+            Handler = CommandHandler.Create<bool, int>(CommandAction);
         }
 
-        private void CommandAction(int announcingPort)
+        private void CommandAction(bool verbose, int announcingPort)
         {
-            
+            if (verbose)
+                Program.LogLevelSwitch.MinimumLevel = Serilog.Events.LogEventLevel.Debug;
+
         }
     }
 }

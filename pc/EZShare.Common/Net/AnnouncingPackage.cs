@@ -13,11 +13,11 @@ namespace EZShare.Common.Net
 
         public string PublicKey { get; }
 
-        public AnnouncingPackage(int transferPort, string publicKey)
+        public AnnouncingPackage(int transportPort, string publicKey)
         {
             Version = Assembly.GetEntryAssembly().GetName().Version.ToString();
             HostName = Environment.MachineName;
-            TransferPort = transferPort;
+            TransportPort = transportPort;
             PublicKey = publicKey;
         }
     }

@@ -2,6 +2,18 @@
 
 在内网中任意Windows、Linux、Android机器之间共享文件
 
+## 文件传输流程
+
+```
+发送端          接收端
+  |------公钥---->|
+  |<------OK------|
+  |---文件概况---->|
+  |<------OK------|
+  |---传输文件---->|
+  |-----CLOSE---->|
+```
+
 ## 通信协议包头
 
 加密数据包
@@ -64,7 +76,7 @@ Content-Length: 2
 Content-Type: Text
 Session-Id: 1111ABCD
 
-OK
+OK或CLOSE
 ```
 
 ## 发送端传输文件概况
@@ -115,7 +127,7 @@ Content-Description: pathname=realtive/path/
 
 ```
 
-## 取消文件传输
+## 取消或完成文件传输
 
 ```
 EZSHARE/1.0

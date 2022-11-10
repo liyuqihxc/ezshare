@@ -1,4 +1,5 @@
 ﻿using Serilog;
+using Serilog.Core;
 using System;
 using System.Collections.ObjectModel;
 using System.Net;
@@ -14,27 +15,27 @@ namespace EZShare.Common.Net
     {
         private readonly ILogger _logger;
         private readonly UdpClient _socket;
-        private readonly IPAddress _localAddress;
         private readonly IPEndPoint _boardcastAddress;
         private readonly int _port;
+        private readonly TcpListener _tcpListener;
         private readonly Task _announcingTask;
         private readonly Task _listeningTask;
+        private readonly Task _acceptTask;
         private readonly CancellationTokenSource _cancellationTokenSource;
         private bool _disposed;
 
-        public Announcer(string ip, int subnetMask, int port)
+        public Announcer(int port)
         {
             OnlineClients = new ObservableCollection<Peer>();
             _logger = Log.ForContext<Announcer>();
             _port = port;
-            _localAddress = IPAddress.Parse(ip);
+            _boardcastAddress = new IPEndPoint(IPAddress.Broadcast, port);
+            _tcpListener = new TcpListener(IPAddress.Any, 0);
 
-            int addr = BitConverter.ToInt32(_localAddress.GetAddressBytes(), 0);
-            int mask = -1 << sizeof(uint) - subnetMask;
-            _boardcastAddress = new IPEndPoint(new IPAddress(BitConverter.GetBytes(addr | ~mask)), port);
-
+            _logger.Debug("Creating announcer on {0}", port);
             _socket = new UdpClient(port);
             _cancellationTokenSource = new CancellationTokenSource();
+            _acceptTask = Task.Factory.StartNew(AcceptProc, _cancellationTokenSource.Token, TaskCreationOptions.LongRunning);
             _announcingTask = Task.Factory.StartNew(AnnouncingProc, _cancellationTokenSource.Token, TaskCreationOptions.LongRunning);
             _listeningTask = Task.Factory.StartNew(ListeningProc, _cancellationTokenSource.Token, TaskCreationOptions.LongRunning);
         }
@@ -59,7 +60,7 @@ namespace EZShare.Common.Net
             {
                 try
                 {
-                    var packet = new AnnouncingPackage();
+                    var packet = new AnnouncingPackage(((IPEndPoint)_tcpListener.LocalEndpoint).Port, "");
                     var json = JsonSerializer.Serialize(packet);
                     var buffer = Encoding.UTF8.GetBytes(json);
                     _socket.Send(buffer, buffer.Length, _boardcastAddress);
@@ -70,6 +71,23 @@ namespace EZShare.Common.Net
                     _logger.Error(e, "Error occurred while broadcasting announce message.");
                 }
                 Thread.Sleep(1000);
+            }
+        }
+
+        private void AcceptProc(object param)
+        {
+            _tcpListener.Start();
+            while (!_cancellationTokenSource.IsCancellationRequested)
+            {
+                try
+                {
+                    var newClient = _tcpListener.AcceptTcpClient();
+                    var receiver = new FileReceiver(newClient);
+                }
+                catch (Exception e)
+                {
+                    _logger.Error(e, "Error occurred while accepting incoming connection.");
+                }
             }
         }
 
