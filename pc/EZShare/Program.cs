@@ -45,6 +45,7 @@ sVHWLixC66/JRCt9zNmzLKQhC9t4/hniAgXDH2g8ZJEaeIpyVwPktV1A9g==
 -----END PUBLIC KEY-----";
             var ecdsa = ECDsa.Create();
             ecdsa.ImportFromPem(privateKey);
+            var a = ecdsa.ExportSubjectPublicKeyInfo();
             Console.WriteLine("Hello, World!");
         }
     }

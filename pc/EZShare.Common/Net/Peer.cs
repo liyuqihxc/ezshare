@@ -1,19 +1,39 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Net;
 using System.Text;
 
 namespace EZShare.Common.Net
 {
     public class Peer
     {
-        public string Version { get; }
+        public Peer(string version, string hostName, string publicKey, IPEndPoint peerEndPoint)
+        {
+            Version = version;
+            HostName = hostName;
+            PeerEndPoint = peerEndPoint;
+            PublicKey = Convert.FromBase64String(publicKey);
+        }
 
-        public string HostName { get; }
+        public string Version { get; set; }
 
-        public int TransportPort { get; }
+        public string HostName { get; set; }
 
-        public string PublicKey { get; }
+        public IPEndPoint PeerEndPoint { get; }
 
-        public string PeerFingerprint { get; }
+        public byte[] PublicKey { get; }
+
+        private string? _peerFingerprint;
+        public string PeerFingerprint
+        {
+            get
+            {
+                if (_peerFingerprint == null)
+                {
+                    _peerFingerprint = Crypto.Hash.ComputePublicKeyFingerprint(PublicKey);
+                }
+                return _peerFingerprint;
+            }
+        }
     }
 }

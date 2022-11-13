@@ -71,7 +71,7 @@ namespace EZShare.Common.Net
 
         private Task InitializeOrResetConnectionAsync()
         {
-            
+            throw new NotImplementedException();
         }
 
         private Task EstablishConnectionAsync()
