@@ -31,22 +31,32 @@ namespace EZShare
                 cts.Cancel();
             };
 
-            new Commands.ToolRootCommand().Invoke("receive");
+            new Commands.ToolRootCommand().Invoke("receive -p alice.pem");
             return;
 
-            var privateKey = @"-----BEGIN EC PRIVATE KEY-----
-MHcCAQEEIK6U/6trv8I16jvktIzLA3ohU5cWiNjM20ISHxu8sE/joAoGCCqGSM49
-AwEHoUQDQgAEhL1sCAyujv+0HmRs3Jreulk6MC4UsVHWLixC66/JRCt9zNmzLKQh
-C9t4/hniAgXDH2g8ZJEaeIpyVwPktV1A9g==
+            var privateKeyAlice = @"-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEINiwj5PQVYOKfAxdumGCq7lg3asYrUrvbIerNPcS7EbBoAoGCCqGSM49
+AwEHoUQDQgAEKLyt69y1JAof/aJuQGC7VaJ39cXW776D6WmP2/WwsmO5HTpP+ekX
+dDVUp8fGdl0w5C5PdE06ZM0m83hJNihcRQ==
 -----END EC PRIVATE KEY-----";
-            var publicKey = @"-----BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEhL1sCAyujv+0HmRs3Jreulk6MC4U
-sVHWLixC66/JRCt9zNmzLKQhC9t4/hniAgXDH2g8ZJEaeIpyVwPktV1A9g==
------END PUBLIC KEY-----";
-            var ecdsa = ECDsa.Create();
-            ecdsa.ImportFromPem(privateKey);
-            var a = ecdsa.ExportSubjectPublicKeyInfo();
-            Console.WriteLine("Hello, World!");
+            var privateKeyBob = @"-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIPcrw+is1BiN0tL3bncwNaC4hXeFC9VzGVa8msR8DVYXoAoGCCqGSM49
+AwEHoUQDQgAEfQdXx2b3kHGeWSl94C0MOa3p0V/Hxa81ZxN+q8amEPwnp/PLiIMB
+7jSuEPrrlaT/6/Q8Slhob22C6wTRRMqiiA==
+-----END EC PRIVATE KEY-----";
+            using var alice = new ECDiffieHellmanCng(ECCurve.NamedCurves.nistP256);
+            alice.ImportFromPem(privateKeyAlice);
+            alice.KeyDerivationFunction = ECDiffieHellmanKeyDerivationFunction.Hash;
+            alice.HashAlgorithm = CngAlgorithm.Sha256;
+            var alicePublicKey = alice.PublicKey.ToByteArray();
+            using var bob = new ECDiffieHellmanCng(ECCurve.NamedCurves.nistP256);
+            //bob.ImportFromPem(privateKeyBob);
+            bob.KeyDerivationFunction = ECDiffieHellmanKeyDerivationFunction.Hash;
+            bob.HashAlgorithm = CngAlgorithm.Sha256;
+            var bobPublicKey = bob.PublicKey.ToByteArray();
+            byte[] bobKey = bob.DeriveKeyMaterial(CngKey.Import(alicePublicKey, CngKeyBlobFormat.EccPublicBlob));
+            byte[] aliceKey = alice.DeriveKeyMaterial(CngKey.Import(bobPublicKey, CngKeyBlobFormat.EccPublicBlob));
+            var equal = Enumerable.SequenceEqual(bobKey, aliceKey);
         }
     }
 }

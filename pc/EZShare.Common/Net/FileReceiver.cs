@@ -7,7 +7,7 @@ using Stateless;
 
 namespace EZShare.Common.Net
 {
-    public class FileReceiver
+    public sealed class FileReceiver
     {
         private enum _States
         {
@@ -31,7 +31,7 @@ namespace EZShare.Common.Net
         private readonly StateMachine<_States, _Commands> _stateMachine;
         private readonly TcpClient _tcpClient;
 
-        public FileReceiver(TcpClient tcpClient)
+        internal FileReceiver(TcpClient tcpClient)
         {
             _tcpClient = tcpClient;
 

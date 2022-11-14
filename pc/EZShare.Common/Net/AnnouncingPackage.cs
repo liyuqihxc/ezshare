@@ -1,6 +1,8 @@
-﻿using System;
+﻿using EZShare.Common.Crypto;
+using System;
 using System.Reflection;
 using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -22,12 +24,22 @@ namespace EZShare.Common.Net
 
         public string Version { get; private set; }
 
-        public AnnouncingPackage(int transportPort, string publicKey)
+        public AnnouncingPackage(int transportPort, byte[] ecPublicKey)
         {
             Version = Assembly.GetEntryAssembly().GetName().Version.ToString();
             HostName = Environment.MachineName;
             TransportPort = transportPort;
+            PublicKey = Convert.ToBase64String(ecPublicKey);
+        }
+
+        [JsonConstructor]
+        public AnnouncingPackage(string hostName, string publicKey, string signature, int transportPort, string version)
+        {
+            Version = version;
+            HostName = hostName;
+            TransportPort = transportPort;
             PublicKey = publicKey;
+            Signature = signature;
         }
 
         private AnnouncingPackage(AnnouncingPackage package)
@@ -43,10 +55,8 @@ namespace EZShare.Common.Net
             if (Signature == null)
                 throw new InvalidOperationException();
 
-            using var ecdsa = ECDsa.Create();
-            ecdsa.ImportSubjectPublicKeyInfo(Convert.FromBase64String(PublicKey), out var bytesRead);
             var json = JsonSerializer.Serialize(new AnnouncingPackage(this));
-            return ecdsa.VerifyData(Encoding.UTF8.GetBytes(json), Convert.FromBase64String(Signature), HashAlgorithmName.SHA1);
+            return Hash.VerifySignature(Encoding.UTF8.GetBytes(json), Convert.FromBase64String(Signature), Convert.FromBase64String(PublicKey));
         }
     }
 }

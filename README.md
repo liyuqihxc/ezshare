@@ -63,10 +63,12 @@ Content-Type: json
 {
   "Version": "1.0.0",
   "HostName": "LAPTOP-1A1418SN",
-  "PublicKey": "",
-  "Signature": ""
+  "SessionKey": "",
+  "Identity": "{"PublicKey": "","Signature": ""}"
 }
 ```
+
+*Identity*为加密后的base64数据，解密后包含发送端的公钥和签名
 
 ### 接收端确认生成会话
 

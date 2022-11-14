@@ -1,25 +1,35 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
+using System.Threading;
 
 namespace EZShare.Common.Net
 {
     public class Peer
     {
-        public Peer(string version, string hostName, string publicKey, IPEndPoint peerEndPoint)
+        private TcpClient? _tcpClient;
+
+        internal Peer(string version, string hostName, byte[] ecPublicKey, IPEndPoint? peerEndPoint)
         {
             Version = version;
             HostName = hostName;
             PeerEndPoint = peerEndPoint;
-            PublicKey = Convert.FromBase64String(publicKey);
+            PublicKey = ecPublicKey;
+        }
+
+        internal Peer(TcpClient tcpClient, Action<Peer> callBack)
+        {
+            _tcpClient = tcpClient;
+            new Thread(PrepareForReceivingFiles) { IsBackground = true }.Start();
         }
 
         public string Version { get; set; }
 
         public string HostName { get; set; }
 
-        public IPEndPoint PeerEndPoint { get; }
+        public IPEndPoint? PeerEndPoint { get; }
 
         public byte[] PublicKey { get; }
 
@@ -35,5 +45,20 @@ namespace EZShare.Common.Net
                 return _peerFingerprint;
             }
         }
+
+        private void PrepareForReceivingFiles()
+        {
+
+        }
+    }
+
+    public interface IPeerEventHandler
+    {
+        void OnConnectionEstablished();
+    }
+
+    public interface IFileIncomingHandler : IPeerEventHandler
+    {
+
     }
 }

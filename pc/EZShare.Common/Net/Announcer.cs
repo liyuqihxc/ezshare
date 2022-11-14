@@ -1,4 +1,5 @@
-﻿using Serilog;
+﻿using EZShare.Common.Crypto;
+using Serilog;
 using Serilog.Core;
 using System;
 using System.Collections.ObjectModel;
@@ -13,39 +14,44 @@ using System.Threading.Tasks;
 
 namespace EZShare.Common.Net
 {
-    public class Announcer : IDisposable
+    public sealed class Announcer : IDisposable
     {
         private readonly ILogger _logger;
         private readonly UdpClient _socket;
-        private readonly IPEndPoint _boardcastAddress;
+        private readonly int _announcePort;
         private readonly TcpListener _tcpListener;
         private readonly Task _announcingTask;
         private readonly Task _listeningTask;
         private readonly Task _acceptTask;
         private readonly CancellationTokenSource _cancellationTokenSource;
-        private readonly string _privateKey;
+        private readonly byte[] _ecPublicKey;
+        private readonly byte[] _ecPrivateKey;
         private bool _disposed;
 
-        public Announcer(int port, string privateKey)
+        public Announcer(int announcePort, byte[] ecPublicKey, byte[] ecPrivateKey)
         {
             OnlineClients = new ObservableCollection<Peer>();
             _logger = Log.ForContext<Announcer>();
-            _boardcastAddress = new IPEndPoint(IPAddress.Broadcast, port);
+            _announcePort = announcePort;
             _tcpListener = new TcpListener(IPAddress.Any, 0);
 
-            _logger.Debug("Creating announcer on {0}", port);
-            _socket = new UdpClient(port);
+            _logger.Debug("Creating announcer on {0}", announcePort);
+            _socket = new UdpClient(new IPEndPoint(IPAddress.Any, announcePort));
             _cancellationTokenSource = new CancellationTokenSource();
             _acceptTask = Task.Factory.StartNew(AcceptProc, _cancellationTokenSource.Token, TaskCreationOptions.LongRunning);
             _announcingTask = Task.Factory.StartNew(AnnouncingProc, _cancellationTokenSource.Token, TaskCreationOptions.LongRunning);
             _listeningTask = Task.Factory.StartNew(ListeningProc, _cancellationTokenSource.Token, TaskCreationOptions.LongRunning);
-            _privateKey = privateKey;
+            _ecPublicKey = ecPublicKey;
+            _ecPrivateKey = ecPrivateKey;
         }
+
+        public int AnnounceInterval { get; set; } = 1000;
 
         public ObservableCollection<Peer> OnlineClients { get; }
 
         private void ListeningProc(object param)
         {
+            var fingerprint = Hash.ComputePublicKeyFingerprint(_ecPublicKey);
             while (!_cancellationTokenSource.IsCancellationRequested)
             {
                 if (_socket.Available == 0)
@@ -56,8 +62,8 @@ namespace EZShare.Common.Net
                 IPEndPoint? remoteEndPoint = null;
                 var buffer = _socket.Receive(ref remoteEndPoint);
                 var json = Encoding.UTF8.GetString(buffer);
-                AnnouncingPackage packet = JsonSerializer.Deserialize<AnnouncingPackage>(json)!;
-                if (!packet.VerifySignature())
+                var packet = JsonSerializer.Deserialize<AnnouncingPackage>(json)!;
+                if (packet.Fingerprint == fingerprint || !packet.VerifySignature())
                     continue;
                 var peerEndPoint = new IPEndPoint(remoteEndPoint.Address, packet.TransportPort);
                 if (!OnlineClients.Any(c => c.PeerFingerprint == packet.Fingerprint))
@@ -84,28 +90,25 @@ namespace EZShare.Common.Net
 
         private void AnnouncingProc(object param)
         {
-            AnnouncingPackage packet;
-            using (var ecdsa = ECDsa.Create())
-            {
-                ecdsa.ImportECPrivateKey(Convert.FromBase64String(_privateKey), out var bytesRead);
-                packet = new AnnouncingPackage(((IPEndPoint)_tcpListener.LocalEndpoint).Port, Convert.ToBase64String(ecdsa.ExportSubjectPublicKeyInfo()));
-                var signature = ecdsa.SignData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(packet)), HashAlgorithmName.SHA1);
-                packet.Signature = Convert.ToBase64String(signature);
-            }
+            AnnouncingPackage packet = new AnnouncingPackage(((IPEndPoint)_tcpListener.LocalEndpoint).Port, _ecPublicKey);
+            packet.Signature = Convert.ToBase64String(
+                Hash.SignData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(packet)), _ecPrivateKey)
+            );
+            IPEndPoint boardcastAddress = new IPEndPoint(IPAddress.Broadcast, _announcePort);
+            var json = JsonSerializer.Serialize(packet);
+            var buffer = Encoding.UTF8.GetBytes(json);
             while (!_cancellationTokenSource.IsCancellationRequested)
             {
                 try
                 {
-                    var json = JsonSerializer.Serialize(packet);
-                    var buffer = Encoding.UTF8.GetBytes(json);
-                    _socket.Send(buffer, buffer.Length, _boardcastAddress);
-                    _logger.Debug("Announce message sent at {0}", _boardcastAddress);
+                    _socket.Send(buffer, buffer.Length, boardcastAddress);
+                    _logger.Debug("Announce message sent at {0}", boardcastAddress);
                 }
                 catch (Exception e)
                 {
                     _logger.Error(e, "Error occurred while broadcasting announce message.");
                 }
-                Thread.Sleep(1000);
+                Thread.Sleep(AnnounceInterval);
             }
         }
 
@@ -126,7 +129,7 @@ namespace EZShare.Common.Net
             }
         }
 
-        protected virtual void Dispose(bool disposing)
+        private void Dispose(bool disposing)
         {
             if (!_disposed)
             {

@@ -1,7 +1,12 @@
 {
   "profiles": {
     "EZShare": {
-      "commandName": "Project"
+      "commandName": "Project",
+      "workingDirectory": "./"
+    },
+    "WSL": {
+      "commandName": "WSL2",
+      "distributionName": ""
     }
   }
 }
